@@ -1,5 +1,9 @@
 package dev.adarsh.productservice.controllers;
 
+import dev.adarsh.productservice.clients.authenticationClient.AuthenticationClient;
+import dev.adarsh.productservice.clients.authenticationClient.dtos.Role;
+import dev.adarsh.productservice.clients.authenticationClient.dtos.SessionStatus;
+import dev.adarsh.productservice.clients.authenticationClient.dtos.ValidateTokenResponseDtos;
 import dev.adarsh.productservice.dtos.ErrorResponseDto;
 import dev.adarsh.productservice.dtos.GetSingleResponseDto;
 import dev.adarsh.productservice.dtos.ProductDto;
@@ -11,6 +15,7 @@ import dev.adarsh.productservice.services.ProductService;
 import org.apache.coyote.Response;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.lang.Nullable;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.*;
@@ -25,15 +30,47 @@ import java.util.Optional;
 public class ProductController {
     private ProductService productService;
     private ProductRepository productRepository;
-    public ProductController(ProductService productService, ProductRepository productRepository){
+    private AuthenticationClient authenticationClient;
+    public ProductController(ProductService productService, ProductRepository productRepository,AuthenticationClient authenticationClient){
         this.productService=productService;
         this.productRepository=productRepository;
+        this.authenticationClient=authenticationClient;
     }
 
+    //Make only admin to access all products
    // @GetMapping("/products")
     @GetMapping()
-    public List<Product> getAllProduct(){
-        return productService.getAllProduct();
+    public ResponseEntity<List<Product>> getAllProduct(@Nullable @RequestHeader("AUTH_TOKEN") String token,
+                                                       @Nullable @RequestHeader("USER_ID") Long userId){
+        //check if token exist
+        if(token==null || userId==null){
+            return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+        }
+
+        //Validate Token
+        ValidateTokenResponseDtos response=authenticationClient.validate(token,userId);
+
+        //check if token is valid
+        if(response.getSessionStatus().equals(SessionStatus.INVALID)){
+            return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+        }
+
+        //check if user has permission
+        boolean isUserAdmin=false;
+        for (Role role:response.getUserDto().getRoles()){
+            if(role.getName().equals("ADMIN")){
+                isUserAdmin=true;
+            }
+        }
+
+        if(!isUserAdmin){
+            return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+        }
+
+
+        List<Product> products=productService.getAllProduct();
+        products.get(0).setPrice(100);
+        return new ResponseEntity<>(products,HttpStatus.OK);
     }
 
     @GetMapping("/{productId}")
