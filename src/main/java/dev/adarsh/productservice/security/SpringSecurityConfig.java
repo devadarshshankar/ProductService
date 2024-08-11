@@ -16,16 +16,17 @@ public class SpringSecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .authorizeHttpRequests(authorize -> authorize
+                        .requestMatchers("/products").hasAuthority("ADMIN")
                         //.requestMatchers("/messages/**").access(hasScope("message:read"))
                         .anyRequest().authenticated()//only allow a person who has logged in
                 )
-                .oauth2ResourceServer((oauth2) -> oauth2.jwt(Customizer.withDefaults()));
+                .oauth2ResourceServer((oauth2) -> oauth2.jwt(Customizer.withDefaults()))
       //  .anyRequest().permitAll() -> allow anyone to access the url without login
-//                .oauth2ResourceServer(oauth2 -> oauth2
-//                        .jwt(jwt -> jwt
-//                                .jwtAuthenticationConverter(myConverter())
-//                        )
-//                );
+                .oauth2ResourceServer(oauth2 -> oauth2
+                        .jwt(jwt -> jwt
+                                .jwtAuthenticationConverter(new CustomJwtAuthenticationConverter())
+                        )
+                );
         return http.build();
     }
 }
